@@ -9,6 +9,7 @@ our @EXPORT = qw(
     abspath
     is_image
     mimetype
+    get
     _scan_files
 );
 

@@ -7,7 +7,8 @@ use NNPV::Controller;
 
 our $DEBUG   = 1;
 our $APPNAME = 'NicoNamaPictViewer';
-our $VERSION = '0.0.1';
+our $VENDORNAME = 'tcpiptan';
+our $VERSION = '0.1.0';
 
 sub run {
     my $class = shift;
@@ -18,6 +19,7 @@ sub run {
     $controller->init_image;
     $controller->init_store;
     $controller->init_app;
+    $controller->init_config;
     $controller->init_frame;
     
     $controller->run;

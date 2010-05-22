@@ -26,32 +26,60 @@ use Wx qw(
     wxTIMER_CONTINUOUS
     wxTIMER_ONE_SHOT
     wxEVT_TIMER
+    wxVERTICAL
+    wxHORIZONTAL
+    wxALL
+    wxGROW
+    wxEXPAND
+    wxALIGN_CENTER_VERTICAL
+    wxALIGN_RIGHT
+    wxTE_NO_VSCROLL
 );
 use Wx::Event qw(EVT_KEY_DOWN EVT_MENU EVT_MENU_CLOSE EVT_TIMER);
 
 use base qw(Wx::Frame Class::Accessor::Fast);
-__PACKAGE__->mk_accessors( qw(status_bar static_bitmap timer) );
+__PACKAGE__->mk_accessors( qw(
+    status_bar
+    static_bitmap
+    timer
+    slideshow
+    menuitem_slideshow
+    shuffle
+    menuitem_shuffle
+    sizer
+) );
 
 use constant {
-    MENU_FILE_OPEN       => 101,
+    MENU_FILE_OPEN       => 1001,
     
-    MENU_IMAGE_PREV      => 201,
-    MENU_IMAGE_NEXT      => 202,
-    MENU_IMAGE_FIRST     => 203,
-    MENU_IMAGE_LAST      => 204,
-    MENU_IMAGE_DELETE    => 205,
-    MENU_IMAGE_DELETEALL => 206,
+    MENU_IMAGE_PREV      => 2001,
+    MENU_IMAGE_NEXT      => 2002,
+    MENU_IMAGE_FIRST     => 2003,
+    MENU_IMAGE_LAST      => 2004,
+    MENU_IMAGE_DELETE    => 2005,
+    MENU_IMAGE_DELETEALL => 2006,
     
-    MENU_IMAGE_0         => 210,
-    MENU_IMAGE_1         => 211,
-    MENU_IMAGE_2         => 212,
-    MENU_IMAGE_3         => 213,
-    MENU_IMAGE_4         => 214,
-    MENU_IMAGE_5         => 215,
-    MENU_IMAGE_6         => 216,
-    MENU_IMAGE_7         => 217,
-    MENU_IMAGE_8         => 218,
-    MENU_IMAGE_9         => 219,
+    MENU_IMAGE_0         => 2101,
+    MENU_IMAGE_1         => 2102,
+    MENU_IMAGE_2         => 2103,
+    MENU_IMAGE_3         => 2104,
+    MENU_IMAGE_4         => 2105,
+    MENU_IMAGE_5         => 2106,
+    MENU_IMAGE_6         => 2107,
+    MENU_IMAGE_7         => 2108,
+    MENU_IMAGE_8         => 2109,
+    MENU_IMAGE_9         => 2110,
+    
+    MENU_IMAGE_SLIDESHOW => 2201,
+    MENU_IMAGE_SHUFFLE   => 2202,
+    
+    MENU_IMAGE_URL       => 2301,
+    
+    MENU_OTHER_SETTINGS  => 3001,
+    
+    TIMER_SLIDESHOW      => 4001,
+    
+    BUTTON_WGET          => 5001,
 };
 
 
@@ -70,12 +98,17 @@ sub new {
     
     my $menu_file  = Wx::Menu->new();
     my $menu_image = Wx::Menu->new();
-    my $menu_help  = Wx::Menu->new();
+    my $menu_other = Wx::Menu->new();
     
     $menu_file->Append(MENU_FILE_OPEN, "開く(&O)...\tCtrl+O", "開く");
     $menu_file->AppendSeparator();
     $menu_file->Append(wxID_EXIT, "終了(&X)", "終了");
     
+    $self->menuitem_slideshow( $menu_image->AppendCheckItem(MENU_IMAGE_SLIDESHOW, "スライドショー\tS", "スライドショー") );
+    $self->menuitem_shuffle( $menu_image->AppendCheckItem(MENU_IMAGE_SHUFFLE,   "シャッフル\tR",     "シャッフル") );
+    $menu_image->AppendSeparator();
+    $menu_image->Append(MENU_IMAGE_URL, "Webから取得\tU", "Webから取得");
+    $menu_image->AppendSeparator();
     $menu_image->Append(MENU_IMAGE_PREV,      "前の画像\tP", "前の画像");
     $menu_image->Append(MENU_IMAGE_NEXT,      "次の画像\tN", "次の画像");
     $menu_image->AppendSeparator();
@@ -94,20 +127,22 @@ sub new {
     $menu_image->Append(MENU_IMAGE_0,         "10番目の画像\t0", "10番目の画像");
     $menu_image->AppendSeparator();
     $menu_image->Append(MENU_IMAGE_DELETE,    "この画像を削除\tDelete", "この画像を削除");
-    $menu_image->Append(MENU_IMAGE_DELETEALL, "全ての画像を削除(&T)\tCtrl+Delete", "全ての画像を削除");
+    $menu_image->Append(MENU_IMAGE_DELETEALL, "全ての画像を削除\tCtrl+Delete", "全ての画像を削除");
     
-    $menu_help->Append(wxID_ABOUT, "バージョン情報(&A)", "バージョン情報");
+    $menu_other->Append(MENU_OTHER_SETTINGS, "設定...", "設定...");
+    $menu_other->AppendSeparator();
+    $menu_other->Append(wxID_ABOUT, "バージョン情報(&A)", "バージョン情報");
     
     my $menubar = Wx::MenuBar->new();
     $menubar->Append($menu_file,  "ファイル(&F)");
     $menubar->Append($menu_image, "画像(&I)");
-    $menubar->Append($menu_help,  "ヘルプ(&H)");
+    $menubar->Append($menu_other, "その他(&O)");
     $self->SetMenuBar($menubar);
     
     my $controller = NNPV::Controller->instance;
     
     EVT_MENU($self, MENU_FILE_OPEN, \&file_dialog);
-    EVT_MENU($self, wxID_EXIT, sub {$_[0]->Close});
+    EVT_MENU($self, wxID_EXIT, sub {$_[0]->stop_timer;$_[0]->Close});
     
     EVT_MENU($self, MENU_IMAGE_PREV,      sub { $controller->image_prev });
     EVT_MENU($self, MENU_IMAGE_NEXT,      sub { $controller->image_next });
@@ -126,20 +161,37 @@ sub new {
     EVT_MENU($self, MENU_IMAGE_DELETE,    sub { $controller->image_delete });
     EVT_MENU($self, MENU_IMAGE_DELETEALL, sub { $controller->image_delete_all });
     
+    EVT_MENU($self, MENU_IMAGE_SLIDESHOW, sub { $controller->toggle_slideshow });
+    EVT_MENU($self, MENU_IMAGE_SHUFFLE,   sub { $controller->toggle_shuffle });
+    
+    EVT_MENU($self, MENU_IMAGE_URL,       sub { $controller->init_url });
+    
+    EVT_MENU($self, MENU_OTHER_SETTINGS,  sub { $controller->init_settings });
     EVT_MENU($self, wxID_ABOUT, \&on_about );
     EVT_MENU_CLOSE($self, sub { $controller->update_status_bar });
     
+    EVT_TIMER($self, TIMER_SLIDESHOW, \&on_timer);
+    
     $self->SetIcon(get_default_icon());
+    
+    my $panel = Wx::Panel->new($self, -1, wxDefaultPosition, wxDefaultSize, );
     
     # default black bitmap
     my $bitmap = get_default_bitmap();
-    $self->static_bitmap(Wx::StaticBitmap->new($self, -1, $bitmap, wxDefaultPosition));
+    $self->static_bitmap(Wx::StaticBitmap->new($panel, -1, $bitmap, wxDefaultPosition));
     
-    $self->status_bar( $self->CreateStatusBar );
+    $self->sizer( Wx::BoxSizer->new(wxVERTICAL) );
+    $self->sizer->Add($panel, 0, 0, 0);
+    $self->SetSizer($self->sizer);
+    $self->sizer->Fit($self);
+    
+    my $status_bar = $self->CreateStatusBar(3);
+    $status_bar->SetStatusWidths(-1,64,64);
+    $self->status_bar($status_bar);
     
     $self->SetDropTarget(NNPV::DND->new);
     
-    EVT_KEY_DOWN($self, \&OnKeyDown);
+    EVT_KEY_DOWN($self, \&on_keydown);
     
     return $self;
 }
@@ -155,13 +207,18 @@ sub draw_image {
 sub file_dialog {
     my $self = shift;
     
+    my ($x, $y) = $self->GetPositionXY();
+    my ($w, $h) = $self->GetSizeWH();
+    
+    # position is not implemented
     my $dialog = Wx::FileDialog->new(
         $self,
         "ファイルを開く",
         $self->{previous_directory} || '',
         $self->{previous_file} || '',
         (join '|', 'JPEGファイル (*.jpg)|*.jpg', 'PNGファイル (*.png)|*.png', 'GIFファイル (*.gif)|*.gif', 'BMPファイル (*.bmp)|*.bmp'),
-        wxFD_OPEN|wxFD_MULTIPLE
+        wxFD_OPEN|wxFD_MULTIPLE,
+        [$x,$y+$h]
     );
     
     unless ($dialog->ShowModal == wxID_CANCEL) {
@@ -177,6 +234,30 @@ sub file_dialog {
     }
     
     $dialog->Destroy;
+}
+
+sub start_timer {
+    my $self = shift;
+    
+    my $controller = NNPV::Controller->instance;
+    
+    $self->timer( Wx::Timer->new($self, TIMER_SLIDESHOW) );
+    
+    my $interval = $controller->config->Read('slideshow_interval') || 10;
+    $self->timer->Start( $interval * 1000, wxTIMER_CONTINUOUS );
+}
+
+sub stop_timer {
+    my $self = shift;
+    $self->timer->Stop if ref($self->timer) eq 'Wx::Timer';
+    $self->timer(undef);
+}
+
+sub on_timer {
+    my( $self, $event ) = @_;
+    my $controller = NNPV::Controller->instance;
+    
+    $controller->image_next;
 }
 
 sub on_about {
@@ -203,7 +284,7 @@ sub on_about {
     Wx::AboutBox( $info );
 }
 
-sub OnKeyDown {
+sub on_keydown {
     my( $self, $event ) = @_;
 #    print "KEYCODE: ", $event->GetKeyCode(), "\n";
     

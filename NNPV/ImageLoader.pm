@@ -56,10 +56,20 @@ sub get_default_icon {
 }
 
 sub load_image {
-    my $files = shift;
+    my $_files = shift;
+    
+    my $files = [];
+    for my $file (@$_files) {
+        if (ref $file eq 'HASH' and defined $file->{path}) {
+            push @$files, $file;
+        }
+        else {
+            push @$files, { path => $file };
+        }
+    }
     
     # ソート
-    #$files = [sort @$files];
+    $files = [sort { $a->{path} <=> $b->{path} } @$files];
     
     my $controller = NNPV::Controller->instance;
     
@@ -119,14 +129,19 @@ sub _convert_files {
         $num++;
         
         my $per = sprintf("%3d", $num / $all_num * 100);
-        $controller->frame->status_bar->SetStatusText("[${per}%] 読み込み中です... ${file}");
-        my $image = file_to_bitmap($file);
+        my $info = $file->{path};
+        if (defined $file->{url}) {
+            $info = $file->{url};
+        }
+        $controller->frame->status_bar->SetStatusText("[${per}%] 読み込み中です... $info");
+        my $image = file_to_bitmap($file->{path});
         if (_obj_ok($image)) {
             $converted++;
-            $controller->store->add({ path => $file, obj => $image });
+            $file->{obj} = $image;
+            $controller->store->add($file);
         }
         else {
-            $controller->frame->status_bar->SetStatusText("失敗1 [${file}]");
+            $controller->frame->status_bar->SetStatusText("失敗1 [" . $file->{path} . "]");
         }
     }
     $controller->frame->draw_image( $controller->store->get );

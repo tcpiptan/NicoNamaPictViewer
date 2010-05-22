@@ -1,6 +1,6 @@
 wxpar ^
 --gui ^
--o nnpv0.0.1.exe ^
+-o nnpv.exe ^
 -i resources\NNPV.ico ^
 -a resources\NNPV.ico ^
 -a resources\Default.jpg ^

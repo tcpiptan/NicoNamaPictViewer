@@ -5,6 +5,7 @@ package NNPV::FileSystem::Unix;
 use NNPV::CommonSense;
 use File::Spec;
 use File::MMagic;
+use LWP::UserAgent;
 
 sub new { bless {}, shift }
 
@@ -46,6 +47,47 @@ sub mimetype {
     File::MMagic->new->checktype_filename($file);
 }
 
+sub get {
+    my $self = shift;
+    
+    my $url = shift;
+    my $method = shift || 'GET';
+    
+    my $ua = LWP::UserAgent->new;
+    
+    #タイムアウトを設定
+    $ua->timeout(10);
+    
+    #ユーザエージェントを設定
+    $ua->agent('Mozilla');
+    
+    #GET、PUT、POST、DELETE、HEADのいずれかを指定（httpsの場合はhttpsにするだけ）
+    my $req = HTTP::Request->new($method => $url);
+    
+    #リクエスト結果を取得
+    #requestメソッドではリダイレクトも自動的に処理するため、そうしたくない場合はsimple_requestメソッドを使用するとよい。
+    my $res = $ua->request($req);
+    
+    #is_successの他にis_redirect、is_errorなどがある(is_redirectを判定する場合、 simple_requestメソッドを使用)
+    if ($res->is_success) {
+#        print "SUCCESS $method $url\n";
+        my $type = $res->content_type;
+        if ($type =~ m@^image/(bmp|gif|pjpeg|jpeg|x-png|png)$@) {
+            my $file = File::Spec->catfile(File::Spec->tmpdir, $res->filename);
+            open(my $fh, '>', $file);
+            binmode $fh;
+            print $fh $res->content;
+            close $fh;
+            return $file;
+        }
+    }
+#    else {
+#        print "FAILURE $method $url\n";
+#        print $res->status_line . "\n";
+#    }
+    return undef;
+}
+
 sub _scan_files {
     my $self = shift;
     my $files = shift;
@@ -55,17 +97,21 @@ sub _scan_files {
     my $controller = NNPV::Controller->instance;
     
     for my $file (@$files) {
-        if (-d -x $file) {
-            opendir(my $dh, $file) or $controller->frame->status_bar->SetStatusText("ディレクトリが開けません");
-            my @children = sort
-                           map { File::Spec->catfile($file, $_) }
-                           grep { !/^\.{1,2}$/ }
-                           readdir $dh;
+        if (-d -x $file->{path}) {
+            opendir(my $dh, $file->{path}) or $controller->frame->status_bar->SetStatusText("ディレクトリが開けません");
+            my @children = ();
+            for my $f (readdir $dh) {
+                next if $f =~ /^\.{1,2}$/;
+                my $struct = $file;
+                $struct->{path} = File::Spec->catfile($file->{path}, $f);
+                push @children, $struct;
+            }
             closedir $dh;
+            @children = sort { $a->{path} <=> $b->{path} } @children;
             $self->_scan_files(\@children, $results, $count_ref);
         }
-        elsif (-f -r -s $file) {
-            if ($self->is_image($file)) {
+        elsif (-f -r -s $file->{path}) {
+            if ($self->is_image($file->{path})) {
                 ${$count_ref}++;
                 my $num = sprintf("%5d", ${$count_ref});
                 $controller->frame->status_bar->SetStatusText("画像ファイルを数えています... [${num}]");

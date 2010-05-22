@@ -2,7 +2,8 @@
 
 # ＵＴＦ－８
 
-use lib qw(.);
+use FindBin;
+use lib $FindBin::Bin;
 use Wx::Perl::Packager;
 use NNPV::CommonSense;
 use NNPV;

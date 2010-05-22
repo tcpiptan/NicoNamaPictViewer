@@ -1,5 +1,5 @@
 wxpar \
--o nnpv0.0.1 \
+-o nnpv \
 -i resources/NNPV.ico \
 -a resources/NNPV.ico \
 -a resources/Default.jpg \

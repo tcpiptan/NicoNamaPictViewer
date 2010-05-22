@@ -63,20 +63,22 @@ sub _scan_files {
     my $controller = NNPV::Controller->instance;
     
     for my $file (@$files) {
-        if (file_type d => $file) {
+        if (file_type d => $file->{path}) {
             my $dh = Win32::Unicode::Dir->new;
-            $dh->open($file) or $controller->frame->status_bar->SetStatusText("ディレクトリが開けません");
+            $dh->open($file->{path}) or $controller->frame->status_bar->SetStatusText("ディレクトリが開けません");
             my @children = ();
-            for ($dh->fetch) {
-                next if /^\.{1,2}$/;
-                my $full_path = "$file\\$_";
-                push @children, $full_path;
+            for my $f ($dh->fetch) {
+                next if $f =~ /^\.{1,2}$/;
+                my $struct = $file;
+                $struct->{path} = File::Spec->catfile($file->{path}, $f);
+                push @children, $struct;
             }
             $dh->close;
+            @children = sort { $a->{path} <=> $b->{path} } @children;
             $self->_scan_files(\@children, $results, $count_ref);
         }
-        elsif (file_type f => $file) {
-            if ($self->is_image($file)) {
+        elsif (file_type f => $file->{path}) {
+            if ($self->is_image($file->{path})) {
                 ${$count_ref}++;
                 my $num = sprintf("%5d", ${$count_ref});
                 $controller->frame->status_bar->SetStatusText("画像ファイルを数えています... [${num}]");
