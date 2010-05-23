@@ -67,11 +67,8 @@ sub load_image {
             push @$files, { path => $file };
         }
     }
-    
     # ソート
     $files = [sort { $a->{path} <=> $b->{path} } @$files];
-    
-    my $controller = NNPV::Controller->instance;
     
     # 画像ファイルのみを数える
     my $scan_count = 0;

@@ -69,7 +69,7 @@ sub _scan_files {
             my @children = ();
             for my $f ($dh->fetch) {
                 next if $f =~ /^\.{1,2}$/;
-                my $struct = $file;
+                my $struct = {%$file};
                 $struct->{path} = File::Spec->catfile($file->{path}, $f);
                 push @children, $struct;
             }
