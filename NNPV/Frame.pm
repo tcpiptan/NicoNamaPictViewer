@@ -218,7 +218,13 @@ sub on_idle_timer {
     # 必然的に、起動して最初のアイドルイベントがこれを行う(ただし@ARGVが設定されていれば)。
     if (!$_args_parsed and (@ARGV or $ENV{PAR_ARGC} > 0)) {
         $_argv_num  = scalar @ARGV;
-        @_argv_work = @ARGV;
+        for my $argv (@ARGV) {
+            $argv = Encode::decode_utf8($argv);
+            if (not File::Spec->file_name_is_absolute($argv)) {
+                $argv = Cwd::realpath($argv);
+            }
+            push @_argv_work, $argv;
+        }
         $_args_parsed = 1;
         @ARGV = ();
     }

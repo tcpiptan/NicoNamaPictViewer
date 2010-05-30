@@ -74,6 +74,7 @@ sub load_image {
     
     my $files = [];
     for my $file (@$_files) {
+        $file = Encode::decode_utf8($file);
         if (ref $file eq 'HASH' and defined $file->{path}) {
             push @$files, $file;
         }
