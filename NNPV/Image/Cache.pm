@@ -16,6 +16,7 @@ my $digest_version = 1;
 use base qw(Exporter);
 
 our @EXPORT = qw(
+    cache_dir
     file_digest
     cache_load
     cache_store

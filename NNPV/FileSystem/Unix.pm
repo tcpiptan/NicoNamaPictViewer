@@ -82,6 +82,8 @@ sub scan_files {
     
     for my $file (@$files) {
         if ($self->is_dir($file->{path})) {
+            my $config_dir = $self->get_config_dir;
+            next if $file->{path} =~ /^$config_dir/;
             $self->_opendir(my $dh, $file->{path}) or next;
             my @children = ();
             for my $f ($self->_readdir($dh)) {
