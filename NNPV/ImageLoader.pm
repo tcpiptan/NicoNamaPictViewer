@@ -159,15 +159,15 @@ sub url_get {
                 return $file;
             }
             else {
-                msg('画像のURLではありません。');
+                msg_error('画像のURLではありません。');
             }
         }
         else {
-            msg('画像の取得に失敗しました。');
+            msg_error('画像の取得に失敗しました。');
         }
     }
     else {
-        msg('URLが不正です。');
+        msg_error('URLが不正です。');
     }
     
     return undef;

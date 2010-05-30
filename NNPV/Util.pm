@@ -4,16 +4,19 @@ package NNPV::Util;
 
 use NNPV::CommonSense;
 use NNPV::FileSystem::Functions;
+use Wx qw(:everything);
 
 use base qw(Exporter);
 
 our @EXPORT = qw(
-    msg
+    msg_error
     resource_path
 );
 
-sub msg {
-    Wx::LogMessage(@_);
+sub msg_error {
+    my $msg = shift;
+    my $title = shift || $NNPV::APPNAME;
+    Wx::MessageBox($msg, $title, wxOK|wxCENTRE|wxICON_ERROR);
 }
 
 sub resource_path($) {
