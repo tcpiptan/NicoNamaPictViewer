@@ -143,11 +143,14 @@ sub url_get {
     my $file = File::Spec->catfile(File::Spec->tmpdir, $digest);
     return $file if can_read($file);
     
+    my $c = NNPV::Controller->instance;
+    
     if ($url =~ m|^https?://|) {
         my $ua = LWP::UserAgent->new;
         $ua->timeout(10);
         $ua->agent('Mozilla');
         my $req = HTTP::Request->new($method => $url);
+        $c->frame->status_bar->SetStatusText("取得中です... $url");
         my $res = $ua->request($req);
         if ($res->is_success) {
             my $type = $res->content_type;
@@ -159,15 +162,15 @@ sub url_get {
                 return $file;
             }
             else {
-                msg_error('画像のURLではありません。');
+                $c->update_status_bar('画像のURLではありません。');
             }
         }
         else {
-            msg_error('画像の取得に失敗しました。');
+            $c->update_status_bar('画像の取得に失敗しました。');
         }
     }
     else {
-        msg_error('URLが不正です。');
+        $c->update_status_bar('URLが不正です。');
     }
     
     return undef;
