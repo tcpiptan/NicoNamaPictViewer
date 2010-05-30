@@ -12,7 +12,9 @@ our @EXPORT = qw(
     is_dir
     can_read
     decode_argv
-    scan_files
+    open_dir
+    read_dir
+    close_dir
 );
 
 foreach my $meth (@EXPORT) {

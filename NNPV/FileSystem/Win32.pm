@@ -84,20 +84,20 @@ sub can_read {
     file_type(f => $path) and file_size($path) > 0;
 }
 
-sub _opendir {
+sub open_dir {
     my $self = shift;
     
     $_[0] = Win32::Unicode::Dir->new;
     $_[0]->open($_[1]);
 }
 
-sub _readdir {
+sub read_dir {
     my $self = shift;
     
     return ($_[0]->fetch);
 }
 
-sub _closedir {
+sub close_dir {
     my $self = shift;
     
     $_[0]->close;

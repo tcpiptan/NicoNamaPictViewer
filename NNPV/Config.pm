@@ -31,13 +31,14 @@ sub init {
     
     my $config = Wx::ConfigBase::Get;
     
-    $config->Write(slideshow_onoff      => $new ? 0         : 0  + $config->Read('slideshow_onoff'));
-    $config->Write(slideshow_interval   => $new ? 10        : 0  + $config->Read('slideshow_interval'));
-    $config->Write(shuffle_onoff        => $new ? 0         : 0  + $config->Read('shuffle_onoff'));
-    $config->Write(default_image_custom => $new ? 0         : 0  + $config->Read('default_image_custom'));
-    $config->Write(default_image_path   => $new ? ''        : '' . $config->Read('default_image_path'));
-    $config->Write(image_bgcolor        => $new ? '#000000' : '' . $config->Read('image_bgcolor'));
-    $config->Write(image_cache_onoff    => $new ? 1         : 0  + $config->Read('image_cache_onoff'));
+    $config->Write(slideshow_onoff         => $new ? 0         : 0  + $config->Read('slideshow_onoff'));
+    $config->Write(slideshow_interval      => $new ? 10        : 0  + $config->Read('slideshow_interval'));
+    $config->Write(shuffle_onoff           => $new ? 0         : 0  + $config->Read('shuffle_onoff'));
+    $config->Write(default_image_custom    => $new ? 0         : 0  + $config->Read('default_image_custom'));
+    $config->Write(default_image_path      => $new ? ''        : '' . $config->Read('default_image_path'));
+    $config->Write(image_bgcolor           => $new ? '#000000' : '' . $config->Read('image_bgcolor'));
+    $config->Write(image_cache_onoff       => $new ? 1         : 0  + $config->Read('image_cache_onoff'));
+    $config->Write(image_load_nowait_onoff => $new ? 0         : 0  + $config->Read('image_load_nowait_onoff'));
     
     $config->Flush;
     $config;

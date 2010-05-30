@@ -235,59 +235,101 @@ sub on_idle_timer {
     }
     
     # 退避された引数を１つずつ画像ロードリクエストキューに送る
-    if (@_argv_work) {
+    elsif (@_argv_work) {
         my $c = NNPV::Controller->instance;
         $c->load_image([shift @_argv_work]);
     }
     
-    # 画像ロードリクエストキューがあれば処理する
-    if (@NNPV::ImageLoader::_queue) {
+    # 画像カウントリクエストキューがあれば処理する
+    elsif (@NNPV::ImageLoader::_count) {
         $self->stop_slideshow_timer if $self->{timer_slideshow} and $self->{timer_slideshow}->IsRunning;
         
         my $c = NNPV::Controller->instance;
-        my $file = shift @NNPV::ImageLoader::_queue;
-        my $per = sprintf("%3d", ($file->{num} + $NNPV::ImageLoader::_queue_sum - $file->{num_all}) / $NNPV::ImageLoader::_queue_sum * 100);
-        my $location = $file->{target}->{path};
-        if (defined $file->{target}->{url}) {
-            $location = $file->{target}->{url};
-        }
-        $self->status_bar->SetStatusText("[${per}%] 読み込み中です... $location");
-        my $bitmap;
-        unless ($c->config->Read('image_cache_onoff') and $bitmap = cache_load($location)) {
-            if ($bitmap = get_bitmap_from_file($file->{target}->{path})) {
-                cache_store($bitmap, $location) if $c->config->Read('image_cache_onoff');
-            }
-        }
-        if ($bitmap and $bitmap->IsOk) {
-            $file->{target}->{obj} = $bitmap;
-            $c->store->add($file->{target});
-            if ($file->{num} == 1 and !defined($NNPV::ImageLoader::_first_loaded_image_index)) {
-                $NNPV::ImageLoader::_first_loaded_image_index = $c->store->max;
-            }
-        }
-        else {
-            $self->status_bar->SetStatusText("失敗1 [" . $file->{target}->{path} . "]");
-        }
-        
-        # キューが空っぽになったら、追加されたファイルのうちの最初のファイルを描画
-        unless (@NNPV::ImageLoader::_queue) {
-            $self->draw_image($c->store->get($NNPV::ImageLoader::_first_loaded_image_index || 0));
-            $NNPV::ImageLoader::_first_loaded_image_index = undef;
+        do {
+            ++$NNPV::ImageLoader::_count_index;
+            my $file = shift @NNPV::ImageLoader::_count;
             
-            # キューが捌ける前に重ねて次のキュー追加要求が来たが、一旦捌けてしまったため、
-            # 総数のクリアを保留する(次のキューが全て捌けた時に合わせて総数を表示するため)
-            if ($NNPV::ImageLoader::_queueing_on_queueing) {
-                $NNPV::ImageLoader::_queueing_on_queueing = 0;
+            if (is_dir($file->{path})) {
+                my $config_dir = get_config_dir;
+                return if $file->{path} =~ /^\Q$config_dir\E/;
+                return unless open_dir(my $dh, $file->{path});
+                my @children = ();
+                for my $f (read_dir($dh)) {
+                    next if $f =~ /^\.{1,2}$/;
+                    my $struct = {%$file};
+                    $struct->{path} = File::Spec->catfile($file->{path}, $f);
+                    push @children, $struct;
+                }
+                close_dir($dh);
+                unshift @NNPV::ImageLoader::_count, sort { $a->{path} cmp $b->{path} } @children;
             }
-            
-            # 追加されようとしているキューが無いなら、キューが全て捌けたので表示して総数をクリア
+            elsif (can_read($file->{path})) {
+                if (is_image($file->{path})) {
+                    my $location = $file->{path};
+                    if (defined $file->{url}) {
+                        $location = $file->{url};
+                    }
+                    $NNPV::ImageLoader::_count++;
+                    $NNPV::ImageLoader::_queue_all++;
+                    my $num = sprintf("%5d", $NNPV::ImageLoader::_count);
+                    $c->frame->status_bar->SetStatusText("画像ファイルを数えています... [$NNPV::ImageLoader::_count] $location");
+                    push @NNPV::ImageLoader::_queue, $file;
+                }
+            }
+        }
+        while ( $c->config->Read('image_load_nowait_onoff')
+            and $NNPV::ImageLoader::_count_index % $NNPV::ImageLoader::_idle_interval != 0
+            and @NNPV::ImageLoader::_count
+        );
+    }
+    
+    # 画像ロードリクエストキューがあれば処理する
+    elsif (@NNPV::ImageLoader::_queue) {
+        my $c = NNPV::Controller->instance;
+        do {
+            ++$NNPV::ImageLoader::_queue_index;
+            my $file = shift @NNPV::ImageLoader::_queue;
+            my $per = sprintf("%3d", $NNPV::ImageLoader::_queue_index / $NNPV::ImageLoader::_queue_all * 100);
+            my $location = $file->{path};
+            if (defined $file->{url}) {
+                $location = $file->{url};
+            }
+            $self->status_bar->SetStatusText("[${per}%] 読み込み中です... $location");
+            my $bitmap;
+            unless ($c->config->Read('image_cache_onoff') and $bitmap = cache_load($location)) {
+                if ($bitmap = get_bitmap_from_file($file->{path})) {
+                    cache_store($bitmap, $location) if $c->config->Read('image_cache_onoff');
+                }
+            }
+            if ($bitmap and $bitmap->IsOk) {
+                $file->{obj} = $bitmap;
+                $c->store->add($file);
+                if ($NNPV::ImageLoader::_queue_index == 1) {
+                    $NNPV::ImageLoader::_first_loaded_image_index = $c->store->max;
+                }
+            }
             else {
-                $c->update_status_bar($NNPV::ImageLoader::_queue_sum . "件追加されました");
-                $NNPV::ImageLoader::_queue_sum = 0;
+                $self->status_bar->SetStatusText("失敗1 [" . $file->{path} . "]");
             }
             
-            $self->start_slideshow_timer if $self->slideshow;
+            # キューが空っぽになったら、追加されたファイルのうちの最初のファイルを描画
+            unless (@NNPV::ImageLoader::_queue) {
+                $self->draw_image($c->store->get($NNPV::ImageLoader::_first_loaded_image_index || 0));
+                $NNPV::ImageLoader::_first_loaded_image_index = undef;
+                
+                $c->update_status_bar($NNPV::ImageLoader::_queue_all . "件追加されました");
+                $NNPV::ImageLoader::_queue_all = 0;
+                $NNPV::ImageLoader::_queue_index = 0;
+                $NNPV::ImageLoader::_count = 0;
+                
+                $self->Raise();
+                $self->start_slideshow_timer if $self->slideshow;
+            }
         }
+        while ( $c->config->Read('image_load_nowait_onoff')
+            and $NNPV::ImageLoader::_queue_index % $NNPV::ImageLoader::_idle_interval != 0
+            and @NNPV::ImageLoader::_queue
+        );
     }
 }
 
@@ -301,9 +343,11 @@ sub image_load_cancel {
     $NNPV::ImageLoader::_first_loaded_image_index = undef;
     
     $c->update_status_bar("読み込みが中断されました") if @NNPV::ImageLoader::_queue;
-    $NNPV::ImageLoader::_queueing_on_queueing = 0;
-    $NNPV::ImageLoader::_queue_sum = 0;
     @NNPV::ImageLoader::_queue = ();
+    @NNPV::ImageLoader::_count = ();
+    $NNPV::ImageLoader::_queue_all = 0;
+    $NNPV::ImageLoader::_queue_index = 0;
+    $NNPV::ImageLoader::_count = 0;
 }
 
 sub draw_image {

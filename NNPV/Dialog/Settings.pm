@@ -79,6 +79,12 @@ sub image_cache_onoff {
     $self->{checkbox_cache}->GetValue;
 }
 
+sub image_load_nowait_onoff {
+    my $self = shift;
+    $self->{checkbox_load_nowait}->SetValue(@_) if @_;
+    $self->{checkbox_load_nowait}->GetValue;
+}
+
 sub file_dialog {
     my $self = shift;
     

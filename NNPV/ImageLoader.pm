@@ -27,10 +27,15 @@ our $IMAGICK;
 our $DEFAULT_IMAGE = 'resources/Default.jpg';
 our $DEFAULT_ICON  = 'resources/NNPV.ico';
 
-our $_queueing_on_queueing;
+our @_count;
 our @_queue;
-our $_queue_sum;
+
+our $_count;
+our $_count_index;
+our $_queue_index;
+our $_queue_all;
 our $_first_loaded_image_index;
+our $_idle_interval = 100;
 
 sub init {
     eval { require Wx::Perl::Imagick; };
@@ -67,11 +72,6 @@ sub get_default_icon {
 sub load_image {
     my $_files = shift;
     
-    # キューが全て捌けないうちに次のキューが追加されようとしている
-    if (@_queue) {
-        $_queueing_on_queueing = 1;
-    }
-    
     my $files = [];
     for my $file (@$_files) {
         if (ref $file eq 'HASH' and defined $file->{path}) {
@@ -83,18 +83,8 @@ sub load_image {
             push @$files, { path => $file };
         }
     }
-    # ソート
-    $files = [sort { $a->{path} <=> $b->{path} } @$files];
-    
-    # 画像ファイルのみを数える
-    my $scan_count = 0;
-    scan_files($files, my $scan_results = [], \$scan_count);
-    
-    my $converted = 0;
-    if (scalar @$scan_results) {
-        $converted = _convert_files($scan_results);
-    }
-    $converted;
+    # ソートしてカウントキューに入れる
+    push @_count, sort { $a->{path} cmp $b->{path} } @$files;
 }
 
 sub get_bitmap_from_file {
@@ -202,23 +192,6 @@ sub centering_bitmap {
     $dc_src->SelectObject(wxNullBitmap);
     
     $bitmap_dst;
-}
-
-sub _convert_files {
-    my $files = shift;
-    
-    my $num_all = scalar @$files;
-    $_queue_sum += $num_all;
-    my $num = 0;
-    for my $file (@$files) {
-        $num++;
-        
-        # 前のキューが捌ける前に追加キュー要求が間に合った
-        $_queueing_on_queueing = 0 if $_queueing_on_queueing and @_queue;
-        
-        push @_queue, { target => $file, num_all => $num_all, num => $num };
-    }
-    $num_all;
 }
 
 1;

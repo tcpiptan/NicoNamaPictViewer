@@ -54,57 +54,22 @@ sub can_read {
     -f -r -s $path;
 }
 
-sub _opendir {
+sub open_dir {
     my $self = shift;
     
     opendir($_[0], $_[1]);
 }
 
-sub _readdir {
+sub read_dir {
     my $self = shift;
     
     return (readdir $_[0]);
 }
 
-sub _closedir {
+sub close_dir {
     my $self = shift;
     
     closedir $_[0];
-}
-
-sub scan_files {
-    my $self = shift;
-    my $files = shift;
-    my $results = shift;
-    my $count_ref = shift;
-    
-    my $c = NNPV::Controller->instance;
-    
-    for my $file (@$files) {
-        if ($self->is_dir($file->{path})) {
-            my $config_dir = $self->get_config_dir;
-            next if $file->{path} =~ /^\Q$config_dir\E/;
-            $self->_opendir(my $dh, $file->{path}) or next;
-            my @children = ();
-            for my $f ($self->_readdir($dh)) {
-                next if $f =~ /^\.{1,2}$/;
-                my $struct = {%$file};
-                $struct->{path} = File::Spec->catfile($file->{path}, $f);
-                push @children, $struct;
-            }
-            $self->_closedir($dh);
-            @children = sort { $a->{path} <=> $b->{path} } @children;
-            $self->scan_files(\@children, $results, $count_ref);
-        }
-        elsif ($self->can_read($file->{path})) {
-            if ($self->is_image($file->{path})) {
-                ${$count_ref}++;
-                my $num = sprintf("%5d", ${$count_ref});
-                $c->frame->status_bar->SetStatusText("画像ファイルを数えています... [${$count_ref}]");
-                push @$results, $file;
-            }
-        }
-    }
 }
 
 1;
