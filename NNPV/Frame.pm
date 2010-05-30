@@ -380,29 +380,29 @@ sub on_keydown {
     my $c = NNPV::Controller->instance;
     my $f = $c->frame;
     
-    if    ( $key == 316 ) { $c->image_next;        } # →
-    elsif ( $key == 314 ) { $c->image_prev;        } # ←
-    elsif ( $key == 315 ) { $c->image_next;        } # ↑
-    elsif ( $key == 317 ) { $c->image_prev;        } # ↓
-    elsif ( $key == 366 ) { $c->image_next;        } # PageUp
-    elsif ( $key == 367 ) { $c->image_prev;        } # PageDown
-    elsif ( $key ==  13 ) { $c->image_next;        } # Enter
-    elsif ( $key ==  32 ) { $c->image_next;        } # Space
-    elsif ( $key == 370 ) { $c->image_next;        } # Enter(テンキー)
-    elsif ( $key == 388 ) { $c->image_next;        } # ＋(テンキー)
-    elsif ( $key == 390 ) { $c->image_prev;        } # －(テンキー)
-    elsif ( $key == 324 ) { $c->image_get(9);      } # 0(テンキー)
-    elsif ( $key == 325 ) { $c->image_get(0);      } # 1(テンキー)
-    elsif ( $key == 326 ) { $c->image_get(1);      } # 2(テンキー)
-    elsif ( $key == 327 ) { $c->image_get(2);      } # 3(テンキー)
-    elsif ( $key == 328 ) { $c->image_get(3);      } # 4(テンキー)
-    elsif ( $key == 329 ) { $c->image_get(4);      } # 5(テンキー)
-    elsif ( $key == 330 ) { $c->image_get(5);      } # 6(テンキー)
-    elsif ( $key == 331 ) { $c->image_get(6);      } # 7(テンキー)
-    elsif ( $key == 332 ) { $c->image_get(7);      } # 8(テンキー)
-    elsif ( $key == 333 ) { $c->image_get(8);      } # 9(テンキー)
-    elsif ( $key ==  27 ) { $f->image_load_cancel; } # ESC
-    else                  { $event->Skip();        }
+    if    ($key == 316) { $c->image_next;        } # →
+    elsif ($key == 314) { $c->image_prev;        } # ←
+    elsif ($key == 315) { $c->image_next;        } # ↑
+    elsif ($key == 317) { $c->image_prev;        } # ↓
+    elsif ($key == 366) { $c->image_next;        } # PageUp
+    elsif ($key == 367) { $c->image_prev;        } # PageDown
+    elsif ($key ==  13) { $c->image_next;        } # Enter
+    elsif ($key ==  32) { $c->image_next;        } # Space
+    elsif ($key == 370) { $c->image_next;        } # Enter(テンキー)
+    elsif ($key == 388) { $c->image_next;        } # ＋(テンキー)
+    elsif ($key == 390) { $c->image_prev;        } # －(テンキー)
+    elsif ($key == 324) { $c->image_get(9);      } # 0(テンキー)
+    elsif ($key == 325) { $c->image_get(0);      } # 1(テンキー)
+    elsif ($key == 326) { $c->image_get(1);      } # 2(テンキー)
+    elsif ($key == 327) { $c->image_get(2);      } # 3(テンキー)
+    elsif ($key == 328) { $c->image_get(3);      } # 4(テンキー)
+    elsif ($key == 329) { $c->image_get(4);      } # 5(テンキー)
+    elsif ($key == 330) { $c->image_get(5);      } # 6(テンキー)
+    elsif ($key == 331) { $c->image_get(6);      } # 7(テンキー)
+    elsif ($key == 332) { $c->image_get(7);      } # 8(テンキー)
+    elsif ($key == 333) { $c->image_get(8);      } # 9(テンキー)
+    elsif ($key ==  27) { $f->image_load_cancel; } # ESC
+    else                { $event->Skip();        }
 }
 
 1;
