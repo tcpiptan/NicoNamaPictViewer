@@ -1,0 +1,4 @@
+#!/bin/sh
+
+perlapp --add "File::MMagic;LWP::UserAgent;NNPV::FileSystem::Unix" --bind "wxmain.so[file=/opt/ActivePerl-5.10/site/lib/auto/Wx/Wx.so,extract,mode=444]" --bind "libwx_baseu-2.8.so.0[file=/opt/ActivePerl-5.10/site/lib/Alien/wxWidgets/gtk_2_8_11_uni/lib/libwx_baseu-2.8.so.0,extract,mode=444]" --bind "libwx_gtk2u_core-2.8.so.0[file=/opt/ActivePerl-5.10/site/lib/Alien/wxWidgets/gtk_2_8_11_uni/lib/libwx_gtk2u_core-2.8.so.0,extract,mode=444]" --bind "libwx_gtk2u_adv-2.8.so.0[file=/opt/ActivePerl-5.10/site/lib/Alien/wxWidgets/gtk_2_8_11_uni/lib/libwx_gtk2u_adv-2.8.so.0,extract,mode=444]" --bind "resources/Default.jpg[file=resources/Default.jpg,extract,mode=444]" --bind "resources/NNPV.ico[file=resources/NNPV.ico,extract,mode=444]" --icon resources/NNPV.ico --norunlib --nologo --force --exe nnpv NNPV.pl
+
