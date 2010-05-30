@@ -4,8 +4,8 @@ package NNPV::FileSystem::Win32;
 
 use NNPV::CommonSense;
 use NNPV::Controller;
-use Win32::Unicode;
 use Win32::API ();
+use Win32::Unicode::Native;
 
 use base qw(NNPV::FileSystem::Unix);
 
@@ -21,10 +21,10 @@ sub mimetype {
     my $self = shift;
     my $file = shift;
     
-    my $controller = NNPV::Controller->instance;
+    my $c = NNPV::Controller->instance;
     
-    my $filesize = file_size $file;
-    my $fh = Win32::Unicode::File->new(rb => $file) or $controller->frame->status_bar->SetStatusText("ファイルが開けません [${file}]");
+    my $filesize = file_size($file);
+    my $fh = Win32::Unicode::File->new(rb => $file) or $c->frame->status_bar->SetStatusText("ファイルが開けません [${file}]");
     $fh->read(my $filedata, $filesize);
     $fh->close;
     
@@ -54,38 +54,53 @@ sub mimetype {
     Win32::Unicode::Util::utf16_to_utf8($output);
 }
 
-sub _scan_files {
+sub get_config_dir {
     my $self = shift;
-    my $files = shift;
-    my $results = shift;
-    my $count_ref = shift;
     
-    my $controller = NNPV::Controller->instance;
-    
-    for my $file (@$files) {
-        if (file_type d => $file->{path}) {
-            my $dh = Win32::Unicode::Dir->new;
-            $dh->open($file->{path}) or $controller->frame->status_bar->SetStatusText("ディレクトリが開けません");
-            my @children = ();
-            for my $f ($dh->fetch) {
-                next if $f =~ /^\.{1,2}$/;
-                my $struct = {%$file};
-                $struct->{path} = File::Spec->catfile($file->{path}, $f);
-                push @children, $struct;
-            }
-            $dh->close;
-            @children = sort { $a->{path} <=> $b->{path} } @children;
-            $self->_scan_files(\@children, $results, $count_ref);
+    use Win32 qw(CSIDL_LOCAL_APPDATA);
+    my $appdata = Win32::GetFolderPath(CSIDL_LOCAL_APPDATA, 1);
+    if (file_type(d => $appdata)) {
+        my $config_dir = File::Spec->catdir($appdata, $NNPV::APPSHORTNAME);
+        if (file_type(d => $config_dir)) {
+            return $config_dir;
         }
-        elsif (file_type f => $file->{path}) {
-            if ($self->is_image($file->{path})) {
-                ${$count_ref}++;
-                my $num = sprintf("%5d", ${$count_ref});
-                $controller->frame->status_bar->SetStatusText("画像ファイルを数えています... [${num}]");
-                push @$results, $file;
-            }
+        elsif (mkdir($config_dir)) {
+            return $config_dir;
         }
     }
+}
+
+sub is_dir {
+    my $self = shift;
+    my $path = shift;
+    
+    file_type(d => $path);
+}
+
+sub can_read {
+    my $self = shift;
+    my $path = shift;
+    
+    file_type(f => $path) and file_size($path) > 0;
+}
+
+sub _opendir {
+    my $self = shift;
+    
+    $_[0] = Win32::Unicode::Dir->new;
+    $_[0]->open($_[1]);
+}
+
+sub _readdir {
+    my $self = shift;
+    
+    return ($_[0]->fetch);
+}
+
+sub _closedir {
+    my $self = shift;
+    
+    $_[0]->close;
 }
 
 1;

@@ -6,16 +6,30 @@ use NNPV::CommonSense;
 use NNPV::Controller;
 use Wx::DND;
 
-use base qw(Wx::FileDropTarget);
+package NNPV::DND::Image;
 
-sub new { shift->SUPER::new(@_) }
+use base qw(Wx::FileDropTarget);
 
 sub OnDropFiles {
     my( $self, $x, $y, $files ) = @_;
     
-    my $controller = NNPV::Controller->instance;
-    $controller->load_image($files);
-    $controller->frame->Raise();
+    my $c = NNPV::Controller->instance;
+    $c->load_image($files);
+    $c->frame->Raise();
+    
+    return 1;
+}
+
+package NNPV::DND::Url;
+
+use base qw(Wx::TextDropTarget);
+
+sub OnDropText {
+    my( $self, $x, $y, $data ) = @_;
+    
+    my $c = NNPV::Controller->instance;
+    $c->dialog_url->{text_ctrl_url}->SetValue($data);
+    $c->dialog_url->Raise();
     
     return 1;
 }

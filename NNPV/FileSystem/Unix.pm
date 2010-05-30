@@ -3,33 +3,12 @@ package NNPV::FileSystem::Unix;
 # ＵＴＦ－８
 
 use NNPV::CommonSense;
+use NNPV;
 use File::Spec;
 use File::MMagic;
 use LWP::UserAgent;
 
 sub new { bless {}, shift }
-
-sub abspath {
-    my $self = shift;
-    my $file = shift;
-    
-    my $bound_file = undef;
-    if (defined(&PerlApp::extract_bound_file)){
-        $bound_file = PerlApp::extract_bound_file($file);
-        $file = $bound_file if defined $bound_file;
-    }
-    elsif (defined $ENV{PAR_TEMP}) {
-        my $test = File::Spec->catfile($ENV{PAR_TEMP}, 'inc', $file);
-        $file = $test if -e $test;
-    }
-    if (!defined($bound_file)) {
-        unless (File::Spec->file_name_is_absolute($file)) {
-            $file = File::Spec->rel2abs($file);
-        }
-    }
-    
-    $file;
-}
 
 sub is_image {
     my $self = shift;
@@ -47,74 +26,79 @@ sub mimetype {
     File::MMagic->new->checktype_filename($file);
 }
 
-sub get {
+sub get_config_dir {
     my $self = shift;
     
-    my $url = shift;
-    my $method = shift || 'GET';
-    
-    my $ua = LWP::UserAgent->new;
-    
-    #タイムアウトを設定
-    $ua->timeout(10);
-    
-    #ユーザエージェントを設定
-    $ua->agent('Mozilla');
-    
-    #GET、PUT、POST、DELETE、HEADのいずれかを指定（httpsの場合はhttpsにするだけ）
-    my $req = HTTP::Request->new($method => $url);
-    
-    #リクエスト結果を取得
-    #requestメソッドではリダイレクトも自動的に処理するため、そうしたくない場合はsimple_requestメソッドを使用するとよい。
-    my $res = $ua->request($req);
-    
-    #is_successの他にis_redirect、is_errorなどがある(is_redirectを判定する場合、 simple_requestメソッドを使用)
-    if ($res->is_success) {
-#        print "SUCCESS $method $url\n";
-        my $type = $res->content_type;
-        if ($type =~ m@^image/(bmp|gif|pjpeg|jpeg|x-png|png)$@) {
-            my $file = File::Spec->catfile(File::Spec->tmpdir, $res->filename);
-            open(my $fh, '>', $file);
-            binmode $fh;
-            print $fh $res->content;
-            close $fh;
-            return $file;
+    if (-d $ENV{HOME}) {
+        my $profile_dir = File::Spec->catdir($ENV{HOME}, '.' . $NNPV::APPSHORTNAME);
+        if (-d $profile_dir) {
+            return $profile_dir;
+        }
+        elsif (mkdir($profile_dir)) {
+            return $profile_dir;
         }
     }
-#    else {
-#        print "FAILURE $method $url\n";
-#        print $res->status_line . "\n";
-#    }
-    return undef;
 }
 
-sub _scan_files {
+sub is_dir {
+    my $self = shift;
+    my $path = shift;
+    
+    -d -x $path;
+}
+
+sub can_read {
+    my $self = shift;
+    my $path = shift;
+    
+    -f -r -s $path;
+}
+
+sub _opendir {
+    my $self = shift;
+    
+    opendir($_[0], $_[1]);
+}
+
+sub _readdir {
+    my $self = shift;
+    
+    return (readdir $_[0]);
+}
+
+sub _closedir {
+    my $self = shift;
+    
+    closedir $_[0];
+}
+
+sub scan_files {
     my $self = shift;
     my $files = shift;
     my $results = shift;
     my $count_ref = shift;
     
-    my $controller = NNPV::Controller->instance;
+    my $c = NNPV::Controller->instance;
     
     for my $file (@$files) {
-        if (-d -x $file->{path}) {
-            opendir(my $dh, $file->{path}) or $controller->frame->status_bar->SetStatusText("ディレクトリが開けません");
+        if ($self->is_dir($file->{path})) {
+            $self->_opendir(my $dh, $file->{path}) or next;
             my @children = ();
-            for my $f (readdir $dh) {
+            for my $f ($self->_readdir($dh)) {
                 next if $f =~ /^\.{1,2}$/;
                 my $struct = {%$file};
                 $struct->{path} = File::Spec->catfile($file->{path}, $f);
                 push @children, $struct;
             }
-            closedir $dh;
+            $self->_closedir($dh);
             @children = sort { $a->{path} <=> $b->{path} } @children;
-            $self->_scan_files(\@children, $results, $count_ref);
+            $self->scan_files(\@children, $results, $count_ref);
         }
-        elsif (-f -r -s $file->{path}) {
+        elsif ($self->can_read($file->{path})) {
             if ($self->is_image($file->{path})) {
                 ${$count_ref}++;
                 my $num = sprintf("%5d", ${$count_ref});
-                $controller->frame->status_bar->SetStatusText("画像ファイルを数えています... [${num}]");
+                $c->frame->status_bar->SetStatusText("画像ファイルを数えています... [${$count_ref}]");
                 push @$results, $file;
             }
         }

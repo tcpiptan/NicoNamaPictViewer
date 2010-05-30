@@ -7,56 +7,70 @@ use NNPV;
 use NNPV::ImageStore;
 use NNPV::Controller;
 use NNPV::FileSystem::Functions;
-use Wx qw(wxBITMAP_TYPE_ANY wxBITMAP_TYPE_ICO wxBLACK_BRUSH wxNullBitmap wxIMAGE_QUALITY_HIGH);
+use NNPV::Util;
+use NNPV::Image::Cache;
+use Wx qw(:everything);
 
 use base qw(Exporter);
 
 our @EXPORT = qw(
-    get_default_bitmap
     get_default_image
     get_default_icon
     load_image
-    file_to_bitmap
-    _test
+    get_bitmap_from_file
+    url_get
+    centering_bitmap
 );
 
-our $USE_WX_PERL_IMAGICK;
-our $IMAGE_WIDTH  = 512;
-our $IMAGE_HEIGHT = 384;
+our $IMAGICK;
 
 our $DEFAULT_IMAGE = 'resources/Default.jpg';
-our $DEFAULT_XPM   = 'resources/NNPV.ico';
+our $DEFAULT_ICON  = 'resources/NNPV.ico';
+
+our $_queueing_on_queueing;
+our @_queue;
+our $_queue_sum;
+our $_first_loaded_image_index;
 
 sub init {
     eval { require Wx::Perl::Imagick; };
     if ($@) {
-        $USE_WX_PERL_IMAGICK = 0;
+        $IMAGICK = 0;
     }
     else {
-        $USE_WX_PERL_IMAGICK = 1;
+        $IMAGICK = 1;
         Wx::Perl::Imagick->import();
     }
 }
 
-sub get_default_bitmap {
-    Wx::Bitmap->new($IMAGE_WIDTH, $IMAGE_HEIGHT);
-}
-
 sub get_default_image {
-    my $default_image = abspath($DEFAULT_IMAGE);
-    my $obj = file_to_bitmap($default_image);
-    my $image = { path => $default_image, obj => $obj };
-    
-    $image;
+    my $path;
+    my $bitmap;
+    my $c = NNPV::Controller->instance;
+    if ($c->config->Read('default_image_custom')) {
+        $path = $c->config->Read('default_image_path');
+        if (length($path) > 0 and can_read($path)) {
+            $bitmap = get_bitmap_from_file($path);
+        }
+    }
+    unless ($bitmap and $bitmap->IsOk) {
+        $path = resource_path($DEFAULT_IMAGE);
+        $bitmap = get_bitmap_from_file($path);
+    }
+    +{ path => $path, obj => $bitmap };
 }
 
 sub get_default_icon {
-    my $default_icon = abspath($DEFAULT_XPM);
-    Wx::Icon->new($default_icon, wxBITMAP_TYPE_ICO);
+    Wx::Icon->new(resource_path($DEFAULT_ICON), wxBITMAP_TYPE_ICO);
 }
 
 sub load_image {
     my $_files = shift;
+    
+    # キューが全て捌けないうちに次のキューが追加されようとしている
+    if (@_queue) {
+        $_queueing_on_queueing = 1;
+    }
     
     my $files = [];
     for my $file (@$_files) {
@@ -72,7 +86,7 @@ sub load_image {
     
     # 画像ファイルのみを数える
     my $scan_count = 0;
-    _scan_files($files, my $scan_results = [], \$scan_count);
+    scan_files($files, my $scan_results = [], \$scan_count);
     
     my $converted = 0;
     if (scalar @$scan_results) {
@@ -81,24 +95,97 @@ sub load_image {
     $converted;
 }
 
-sub file_to_bitmap {
+sub get_bitmap_from_file {
     my $file = shift;
     
     return undef unless is_image($file);
     
-    my $image = _obj($file);
+    my $image;
+    if ($IMAGICK) {
+        $image = Wx::Perl::Imagick->new($file);
+    }
+    else {
+        $image = Wx::Image->new($file, wxBITMAP_TYPE_ANY);
+    }
     
     return undef unless $image;
     
-    my $bitmap_dst = Wx::Bitmap->new($IMAGE_WIDTH, $IMAGE_HEIGHT);
+    my ($pict_width,  $pict_height)  = ($image->GetWidth, $image->GetHeight);
+    my ($scale_width, $scale_height) = ($pict_width,      $pict_height);
     
-    my $bitmap_src = _resize_to_bitmap($image);
-    my $offset_x = int(($IMAGE_WIDTH  - $bitmap_src->GetWidth ) / 2);
-    my $offset_y = int(($IMAGE_HEIGHT - $bitmap_src->GetHeight) / 2);
+    my $rate_width  = $NNPV::IMAGE_WIDTH  / $pict_width;
+    my $rate_height = $NNPV::IMAGE_HEIGHT / $pict_height;
+    
+    my $rate = $rate_width > $rate_height ? $rate_height : $rate_width;
+    $scale_width  *= $rate;
+    $scale_height *= $rate;
+    
+    my $bitmap;
+    if ($IMAGICK) {
+        $image->Resize(width => $scale_width, height => $scale_height) unless $rate == 1;
+        $bitmap = $image->ConvertToBitmap;
+    }
+    else {
+        $image = $image->Scale($scale_width, $scale_height, wxIMAGE_QUALITY_HIGH) unless $rate == 1;
+        $bitmap = Wx::Bitmap->new($image);
+    }
+    
+    $bitmap if $bitmap and $bitmap->IsOk;
+}
+
+sub url_get {
+    my $url = shift;
+    my $method = shift || 'GET';
+    
+    my $digest = file_digest $url;
+    my $file = File::Spec->catfile(File::Spec->tmpdir, $digest);
+    return $file if can_read($file);
+    
+    if ($url =~ m|^https?://|) {
+        my $ua = LWP::UserAgent->new;
+        $ua->timeout(10);
+        $ua->agent('Mozilla');
+        my $req = HTTP::Request->new($method => $url);
+        my $res = $ua->request($req);
+        if ($res->is_success) {
+            my $type = $res->content_type;
+            if ($type =~ m!^image/(bmp|gif|pjpeg|jpeg|x-png|png)$!) {
+                open(my $fh, '>', $file);
+                binmode $fh;
+                print $fh $res->content;
+                close $fh;
+                return $file;
+            }
+            else {
+                msg('画像のURLではありません。');
+            }
+        }
+        else {
+            msg('画像の取得に失敗しました。');
+        }
+    }
+    else {
+        msg('URLが不正です。');
+    }
+    
+    return undef;
+}
+
+sub centering_bitmap {
+    my $bitmap_src = shift;
+    
+    my $c = NNPV::Controller->instance;
+    my $bgcolor = Wx::Colour->new( $c->config->Read('image_bgcolor') );
+    my $brush = Wx::Brush->new($bgcolor, wxSOLID);
+    
+    my $bitmap_dst = Wx::Bitmap->new($NNPV::IMAGE_WIDTH, $NNPV::IMAGE_HEIGHT);
+    
+    my $offset_x = int(($NNPV::IMAGE_WIDTH  - $bitmap_src->GetWidth ) / 2);
+    my $offset_y = int(($NNPV::IMAGE_HEIGHT - $bitmap_src->GetHeight) / 2);
     
     my $dc_dst = Wx::MemoryDC->new();
     $dc_dst->SelectObject($bitmap_dst);
-    $dc_dst->SetBackground(wxBLACK_BRUSH);
+    $dc_dst->SetBackground($brush);
     $dc_dst->Clear;
     
     my $dc_src = Wx::MemoryDC->new();
@@ -115,100 +202,18 @@ sub file_to_bitmap {
 sub _convert_files {
     my $files = shift;
     
-    my $controller = NNPV::Controller->instance;
-    my $all_num = scalar @$files;
-    $controller->frame->status_bar->SetStatusText("[  0%] 読み込み中です...");
-    
+    my $num_all = scalar @$files;
+    $_queue_sum += $num_all;
     my $num = 0;
-    my $converted = 0;
     for my $file (@$files) {
-        
         $num++;
         
-        my $per = sprintf("%3d", $num / $all_num * 100);
-        my $info = $file->{path};
-        if (defined $file->{url}) {
-            $info = $file->{url};
-        }
-        $controller->frame->status_bar->SetStatusText("[${per}%] 読み込み中です... $info");
-        my $image = file_to_bitmap($file->{path});
-        if (_obj_ok($image)) {
-            $converted++;
-            $file->{obj} = $image;
-            $controller->store->add($file);
-        }
-        else {
-            $controller->frame->status_bar->SetStatusText("失敗1 [" . $file->{path} . "]");
-        }
+        # 前のキューが捌ける前に追加キュー要求が間に合った
+        $_queueing_on_queueing = 0 if $_queueing_on_queueing and @_queue;
+        
+        push @_queue, { target => $file, num_all => $num_all, num => $num };
     }
-    $controller->frame->draw_image( $controller->store->get );
-    $converted;
-}
-
-sub _obj {
-    my $file = shift;
-    
-    my $image;
-    
-    if ($USE_WX_PERL_IMAGICK) {
-        $image = Wx::Perl::Imagick->new($file);
-    }
-    else {
-        $image = Wx::Image->new($file, wxBITMAP_TYPE_ANY);
-    }
-    return undef unless (_obj_ok($image));
-    
-    $image;
-}
-
-sub _obj_ok {
-    my $obj = shift; # Bitmap Object
-    
-    my $ok = undef;
-    
-    if ($USE_WX_PERL_IMAGICK) {
-        $ok = $obj->Ok;
-    }
-    else {
-        $ok = $obj->IsOk;
-    }
-    $ok;
-}
-
-sub _resize_to_bitmap {
-    my $image = shift;
-    
-    my ($pict_width, $pict_height) = ($image->GetWidth, $image->GetHeight);
-    my ($scale_width, $scale_height) = ($pict_width, $pict_height);
-    
-    my $rate = 1;
-    my $offset_x = 0;
-    my $offset_y = 0;
-    
-# if 文を有効にすると、拡大処理を行わない
-#    if ($pict_width > $IMAGE_WIDTH or $pict_height > $IMAGE_HEIGHT) {
-        my $rate_width  = $IMAGE_WIDTH  / $pict_width;
-        my $rate_height = $IMAGE_HEIGHT / $pict_height;
-        $rate = $rate_width > $rate_height ? $rate_height : $rate_width;
-        $scale_width  *= $rate;
-        $scale_height *= $rate;
-#    }
-    
-    my $bitmap;
-    if ($USE_WX_PERL_IMAGICK) {
-        if ($rate != 1) {
-            $image->Resize(width => $scale_width, height => $scale_height);
-        }
-        $bitmap = $image->ConvertToBitmap;
-    }
-    else {
-        if ($rate != 1) {
-            $image = $image->Scale($scale_width, $scale_height, wxIMAGE_QUALITY_HIGH);
-        }
-        $bitmap = Wx::Bitmap->new($image);
-    }
-    
-    $bitmap;
+    $num_all;
 }
 
 1;

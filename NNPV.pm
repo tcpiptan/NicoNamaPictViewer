@@ -3,27 +3,25 @@ package NNPV;
 # ＵＴＦ－８
 
 use NNPV::CommonSense;
-use NNPV::Controller;
 
-our $DEBUG   = 1;
-our $APPNAME = 'NicoNamaPictViewer';
-our $VENDORNAME = 'tcpiptan';
-our $VERSION = '0.1.0';
+our $VERSION      = '0.2.0';
+our $APPNAME      = 'NicoNamaPictViewer';
+our $APPSHORTNAME = 'nnpv';
+our $AUTHOR       = 'tcpiptan';
+our $EMAIL        = 'ptan@ptan.info';
+our $VENDORNAME   = 'tcpiptan';
+our $IMAGE_WIDTH  = 512;
+our $IMAGE_HEIGHT = 384;
+our $EXE          = $APPSHORTNAME . ($^O eq 'MSWin32' ? '.exe' : '');
 
-sub run {
-    my $class = shift;
-    
-    my $controller = NNPV::Controller->instance;
-    
-    $controller->init;
-    $controller->init_image;
-    $controller->init_store;
-    $controller->init_app;
-    $controller->init_config;
-    $controller->init_frame;
-    
-    $controller->run;
-}
+our $WIN32;
+our $PAR;
+our $PDK;
+BEGIN {
+    $WIN32 = ($^O eq 'MSWin32'                ? 1 : 0);
+    $PAR   = (defined $INC{"PAR.pm"}          ? 1 : 0);
+    $PDK   = (defined $INC{"PerlApp/DATA.pm"} ? 1 : 0);
+};
 
 1;
 __END__

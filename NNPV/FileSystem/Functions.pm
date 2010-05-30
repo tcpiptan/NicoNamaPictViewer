@@ -6,11 +6,13 @@ use NNPV::FileSystem;
 use base qw(Exporter);
 
 our @EXPORT = qw(
-    abspath
     is_image
     mimetype
-    get
-    _scan_files
+    get_config_dir
+    is_dir
+    can_read
+    decode_argv
+    scan_files
 );
 
 foreach my $meth (@EXPORT) {

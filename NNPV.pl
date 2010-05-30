@@ -7,8 +7,23 @@ use lib $FindBin::Bin;
 use Wx::Perl::Packager;
 use NNPV::CommonSense;
 use NNPV;
+use NNPV::App;
+use Getopt::Long;
 
-NNPV->run->app->MainLoop;
+my $size;
+my $options = GetOptions(
+    "size=s" => \$size,
+);
+my ($width, $height);
+if ($size =~ /^(\d+)x(\d+)$/) {
+    if ($1 > 0 and $2 > 0) {
+        $width  = $1;
+        $height = $2;
+    }
+}
+
+NNPV::App->run( +{ width => $width, height => $height } )->app->MainLoop;
+
 __END__
 
 =encoding utf8

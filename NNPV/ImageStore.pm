@@ -4,17 +4,17 @@ package NNPV::ImageStore;
 
 use NNPV::CommonSense;
 
-use base qw(Class::Singleton Class::Accessor::Fast);
-__PACKAGE__->mk_accessors( qw(store index count max init add delete get prev next first last) );
+use base qw(Class::Singleton);
 
-sub count { scalar @{ shift->store } }
+sub count { scalar @{ shift->{store} } }
 sub max   { shift->count - 1 }
+sub index { my $self = shift; $self->{index} = shift if @_; $self->{index} }
 
 sub init {
     my $self = shift;
     
-    $self->store([]);
-    $self->index(-1);
+    $self->{store} = [];
+    $self->{index} = -1;
     $self->count;
 }
 
@@ -22,7 +22,7 @@ sub add {
     my $self = shift;
     my $data = shift;
     
-    push @{ $self->store }, $data;
+    push @{ $self->{store} }, $data;
     $self->count;
 }
 
@@ -32,7 +32,7 @@ sub delete {
     return undef unless $self->count > 0;
     
     # 1個抜いて
-    splice @{ $self->store }, $self->index, 1;
+    splice @{ $self->{store} }, $self->index, 1;
     
     # 抜いたので、indexが大きければ調整
     my $index = $self->max;
@@ -55,7 +55,7 @@ sub get {
         $self->index($index);
     }
     
-    @{ $self->store }[ $self->index ];
+    @{ $self->{store} }[ $self->index ];
 }
 
 sub prev {
