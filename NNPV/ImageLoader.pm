@@ -150,7 +150,7 @@ sub url_get {
         my $res = $ua->request($req);
         if ($res->is_success) {
             my $type = $res->content_type;
-            if ($type =~ m!^image/(bmp|gif|pjpeg|jpeg|x-png|png)$!) {
+            if ($type =~ /^image\/(bmp|gif|pjpeg|jpeg|x-png|png)$/) {
                 open(my $fh, '>', $file);
                 binmode $fh;
                 print $fh $res->content;
