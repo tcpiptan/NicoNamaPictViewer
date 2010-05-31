@@ -6,7 +6,7 @@ use NNPV::CommonSense;
 use NNPV::ImageStore;
 use NNPV::ImageLoader;
 use NNPV::Config;
-use NNPV::Frame;
+use NNPV::Frame::Main;
 use NNPV::Dialog::Settings;
 use NNPV::Dialog::Url;
 use NNPV::FileSystem::Functions;
@@ -54,7 +54,7 @@ sub init_config {
 sub init_frame {
     my $self = shift;
     
-    $self->frame( NNPV::Frame->new );
+    $self->frame( NNPV::Frame::Main->new );
     $self->frame->slideshow( $self->config->Read('slideshow_onoff') );
     if ($self->frame->slideshow) {
         $self->frame->menuitem_slideshow->Check(1);
@@ -67,7 +67,7 @@ sub init_frame {
         $self->frame->status_bar->SetStatusText("シャッフル",2);
     }
     $self->frame->draw_image( get_default_image() );
-    $self->frame->Fit;
+#    $self->frame->Fit;
     $self->frame->Layout;
     
     $self->frame;

@@ -1,8 +1,9 @@
-package NNPV::Frame;
+package NNPV::Frame::Main;
 
 # ＵＴＦ－８
 
 use NNPV::CommonSense;
+use NNPV::Frame::Constants;
 use NNPV;
 use NNPV::Controller;
 use NNPV::ImageLoader;
@@ -12,6 +13,8 @@ use NNPV::Image::Cache;
 
 use Wx qw(:everything);
 use Wx::Event qw(:everything);
+
+use base qw(NNPV::Frame::_Main);
 
 # 0.19改にてドラッグ＆ドロップに対応
 BEGIN {
@@ -29,138 +32,52 @@ __PACKAGE__->mk_accessors( qw(
     menuitem_slideshow
     shuffle
     menuitem_shuffle
-    sizer
 ) );
-
-use constant {
-    MENU_FILE_OPEN       => 1001,
-    
-    MENU_IMAGE_PREV      => 2001,
-    MENU_IMAGE_NEXT      => 2002,
-    MENU_IMAGE_FIRST     => 2003,
-    MENU_IMAGE_LAST      => 2004,
-    MENU_IMAGE_DELETE    => 2005,
-    MENU_IMAGE_DELETEALL => 2006,
-    
-    MENU_IMAGE_0         => 2101,
-    MENU_IMAGE_1         => 2102,
-    MENU_IMAGE_2         => 2103,
-    MENU_IMAGE_3         => 2104,
-    MENU_IMAGE_4         => 2105,
-    MENU_IMAGE_5         => 2106,
-    MENU_IMAGE_6         => 2107,
-    MENU_IMAGE_7         => 2108,
-    MENU_IMAGE_8         => 2109,
-    MENU_IMAGE_9         => 2110,
-    
-    MENU_IMAGE_SLIDESHOW => 2201,
-    MENU_IMAGE_SHUFFLE   => 2202,
-    
-    MENU_IMAGE_URL       => 2301,
-    
-    MENU_IMAGE_COPY      => 2401,
-    
-    MENU_OTHER_SETTINGS  => 3001,
-    
-    TIMER_IDLE           => 4001,
-    TIMER_SLIDESHOW      => 4002,
-    
-    BUTTON_WGET          => 5001,
-};
-
 
 sub new {
     my $class = shift;
     
-    my $self = $class->SUPER::new(
-        undef,
-        -1,
-        "$NNPV::APPNAME version $NNPV::VERSION" . ($NNPV::ImageLoader::IMAGICK ? " [高画質]" : " [標準]"),
-        wxDefaultPosition,
-        wxDefaultSize,
-        (wxDEFAULT_FRAME_STYLE | wxSTAY_ON_TOP) ^ (wxMAXIMIZE_BOX | wxRESIZE_BORDER)
-    );
+    my $self = $class->SUPER::new(@_);
     
-    $self->init_menu;
+    $self->{bitmap_main}->SetBitmap( Wx::Bitmap->new($NNPV::IMAGE_WIDTH, $NNPV::IMAGE_HEIGHT) );
+    $self->{bitmap_main}->Refresh();
+    $self->{sizer_main}->Fit($self);
+    $self->{sizer_top}->Fit($self);
+    
+    $self->status_bar( $self->{statusbar_frame} );
+    $self->static_bitmap( $self->{bitmap_main} );
+    $self->menuitem_slideshow( $self->{menuitem_image_slideshow} );
+    $self->menuitem_shuffle( $self->{menuitem_image_shuffle} );
+    
     $self->init_event;
     
+    $self->SetTitle("$NNPV::APPNAME version $NNPV::VERSION" . ($NNPV::ImageLoader::IMAGICK ? " [高画質]" : " [標準]"));
+    
     $self->SetIcon(get_default_icon());
-    
-    my $panel = Wx::Panel->new($self, -1, wxDefaultPosition, wxDefaultSize, );
-    unless ($NNPV::WIN32) {
-        EVT_KEY_DOWN($panel, \&on_keydown);
-        $panel->SetFocusIgnoringChildren();
-    }
-
-    my $bitmap = Wx::Bitmap->new($NNPV::IMAGE_WIDTH, $NNPV::IMAGE_HEIGHT);
-    $self->static_bitmap(Wx::StaticBitmap->new($panel, -1, $bitmap, wxDefaultPosition));
-    
-    $self->sizer( Wx::BoxSizer->new(wxVERTICAL) );
-    $self->sizer->Add($panel, 0, 0, 0);
-    $self->SetSizer($self->sizer);
-    $self->sizer->Fit($self);
-    
-    my $status_bar = $self->CreateStatusBar(3);
-    $status_bar->SetStatusWidths(-1,64,64);
-    $self->status_bar($status_bar);
     
     $self->SetDropTarget(NNPV::DND::Image->new);
     
     $self;
 }
 
-sub init_menu {
-    my $self = shift;
-    
-    my $menu_file  = Wx::Menu->new();
-    $menu_file->Append(MENU_FILE_OPEN, "開く(&O)...\tCtrl+O", "開く");
-    $menu_file->AppendSeparator();
-    $menu_file->Append(wxID_EXIT, "終了(&X)", "終了");
-    
-    my $menu_image = Wx::Menu->new();
-    $menu_image->Append(MENU_IMAGE_COPY, "コピー\tCtrl+C", "コピー");
-    $menu_image->AppendSeparator();
-    $self->menuitem_slideshow( $menu_image->AppendCheckItem(MENU_IMAGE_SLIDESHOW, "スライドショー\tS", "スライドショー") );
-    $self->menuitem_shuffle(   $menu_image->AppendCheckItem(MENU_IMAGE_SHUFFLE,   "シャッフル\tR",     "シャッフル") );
-    $menu_image->AppendSeparator();
-    $menu_image->Append(MENU_IMAGE_URL, "Webから取得\tU", "Webから取得");
-    $menu_image->AppendSeparator();
-    $menu_image->Append(MENU_IMAGE_PREV, "前の画像\tP", "前の画像");
-    $menu_image->Append(MENU_IMAGE_NEXT, "次の画像\tN", "次の画像");
-    $menu_image->AppendSeparator();
-    $menu_image->Append(MENU_IMAGE_FIRST, "最初の画像\tCtrl+H", "最初の画像");
-    $menu_image->Append(MENU_IMAGE_LAST,  "最後の画像\tCtrl+E", "最後の画像");
-    $menu_image->AppendSeparator();
-    $menu_image->Append(MENU_IMAGE_1, "1番目の画像\t1", "1番目の画像");
-    $menu_image->Append(MENU_IMAGE_2, "2番目の画像\t2", "2番目の画像");
-    $menu_image->Append(MENU_IMAGE_3, "3番目の画像\t3", "3番目の画像");
-    $menu_image->Append(MENU_IMAGE_4, "4番目の画像\t4", "4番目の画像");
-    $menu_image->Append(MENU_IMAGE_5, "5番目の画像\t5", "5番目の画像");
-    $menu_image->Append(MENU_IMAGE_6, "6番目の画像\t6", "6番目の画像");
-    $menu_image->Append(MENU_IMAGE_7, "7番目の画像\t7", "7番目の画像");
-    $menu_image->Append(MENU_IMAGE_8, "8番目の画像\t8", "8番目の画像");
-    $menu_image->Append(MENU_IMAGE_9, "9番目の画像\t9", "9番目の画像");
-    $menu_image->Append(MENU_IMAGE_0, "10番目の画像\t0", "10番目の画像");
-    $menu_image->AppendSeparator();
-    $menu_image->Append(MENU_IMAGE_DELETE,    "この画像を削除\tDelete", "この画像を削除");
-    $menu_image->Append(MENU_IMAGE_DELETEALL, "全ての画像を削除\tCtrl+Delete", "全ての画像を削除");
-    
-    my $menu_other = Wx::Menu->new();
-    $menu_other->Append(MENU_OTHER_SETTINGS, "設定...", "設定...");
-    $menu_other->AppendSeparator();
-    $menu_other->Append(wxID_ABOUT, "バージョン情報(&A)", "バージョン情報");
-    
-    my $menubar = Wx::MenuBar->new();
-    $menubar->Append($menu_file,  "ファイル(&F)");
-    $menubar->Append($menu_image, "画像(&I)");
-    $menubar->Append($menu_other, "その他(&O)");
-    $self->SetMenuBar($menubar);
-}
-
 sub init_event {
     my $self = shift;
     
     my $c = NNPV::Controller->instance;
+    
+    if ($^O eq 'MSWin32') {
+        EVT_CHAR($self, \&on_keydown);
+        EVT_LEFT_DOWN($self->{bitmap_main}, \&on_left_click);
+        EVT_RIGHT_DOWN($self->{bitmap_main}, \&on_right_click);
+        EVT_MOUSEWHEEL($self, \&on_wheel);
+    }
+    else {
+        EVT_CHAR_HOOK($self, \&on_keydown);
+        EVT_LEFT_DOWN($self->{bitmap_main}, \&on_left_click);
+        EVT_RIGHT_DOWN($self->{bitmap_main}, \&on_right_click);
+        EVT_MOUSEWHEEL($self->{panel_main}, \&on_wheel);
+        $self->{panel_main}->SetFocusIgnoringChildren;
+    }
     
     EVT_MENU($self, MENU_FILE_OPEN,       \&file_dialog);
     EVT_MENU($self, wxID_EXIT,            sub { $_[0]->stop_slideshow_timer; $_[0]->Close} );
@@ -195,8 +112,6 @@ sub init_event {
     EVT_MENU_CLOSE($self,                 sub { $c->update_status_bar });
     
     EVT_TIMER($self, TIMER_SLIDESHOW,     \&on_slideshow_timer);
-    
-    EVT_KEY_DOWN($self,                   \&on_keydown) if $NNPV::WIN32;
     
     $self->{timer_idle} = Wx::Timer->new($self, TIMER_IDLE);
     EVT_TIMER( $self, TIMER_IDLE,         \&on_idle_timer );
@@ -413,8 +328,35 @@ sub on_slideshow_timer {
     $c->image_next;
 }
 
+sub on_left_click {
+    my($self, $event) = @_;
+    my $c = NNPV::Controller->instance;
+    $c->image_next;
+}
+
+sub on_right_click {
+    my($self, $event) = @_;
+    my $c = NNPV::Controller->instance;
+    $c->image_prev;
+}
+
+sub on_wheel {
+    my($self, $event) = @_;
+    my $c = NNPV::Controller->instance;
+    my $delta = $event->GetWheelDelta();
+    $delta or ($delta = 120); # XXX why is this zero?
+    my $dist = $event->GetWheelRotation() / $delta;
+#    print "delta is $delta, $dist\n";
+    if ($dist > 0) {
+        $c->image_next;
+    }
+    elsif ($dist < 0) {
+        $c->image_prev;
+    }
+}
+
 sub on_keydown {
-    my( $self, $event ) = @_;
+    my($self, $event) = @_;
     my $uni = Wx::wxUNICODE();
     my $key = $event->GetKeyCode;
     my $ukey = $event->GetUnicodeKey;
@@ -424,28 +366,27 @@ sub on_keydown {
     my $c = NNPV::Controller->instance;
     my $f = $c->frame;
     
-    if    ($key == 316) { $c->image_next;        } # →
+    if    ($key ==  13) { $c->image_next;        } # Enter
+    elsif ($key ==  27) { $f->image_load_cancel; } # ESC
+    elsif ($key ==  32) { $c->image_next;        } # Space
+    elsif ($key ==  43) { $c->image_next;        } # ＋(テンキー)
+    elsif ($key ==  45) { $c->image_prev;        } # －(テンキー)
+    elsif ($key ==  48) { $c->image_get(9);      } # 0(テンキー)
+    elsif ($key ==  49) { $c->image_get(0);      } # 1(テンキー)
+    elsif ($key ==  50) { $c->image_get(1);      } # 2(テンキー)
+    elsif ($key ==  51) { $c->image_get(2);      } # 3(テンキー)
+    elsif ($key ==  52) { $c->image_get(3);      } # 4(テンキー)
+    elsif ($key ==  53) { $c->image_get(4);      } # 5(テンキー)
+    elsif ($key ==  54) { $c->image_get(5);      } # 6(テンキー)
+    elsif ($key ==  55) { $c->image_get(6);      } # 7(テンキー)
+    elsif ($key ==  56) { $c->image_get(7);      } # 8(テンキー)
+    elsif ($key ==  57) { $c->image_get(8);      } # 9(テンキー)
     elsif ($key == 314) { $c->image_prev;        } # ←
     elsif ($key == 315) { $c->image_next;        } # ↑
+    elsif ($key == 316) { $c->image_next;        } # →
     elsif ($key == 317) { $c->image_prev;        } # ↓
     elsif ($key == 366) { $c->image_next;        } # PageUp
     elsif ($key == 367) { $c->image_prev;        } # PageDown
-    elsif ($key ==  13) { $c->image_next;        } # Enter
-    elsif ($key ==  32) { $c->image_next;        } # Space
-    elsif ($key == 370) { $c->image_next;        } # Enter(テンキー)
-    elsif ($key == 388) { $c->image_next;        } # ＋(テンキー)
-    elsif ($key == 390) { $c->image_prev;        } # －(テンキー)
-    elsif ($key == 324) { $c->image_get(9);      } # 0(テンキー)
-    elsif ($key == 325) { $c->image_get(0);      } # 1(テンキー)
-    elsif ($key == 326) { $c->image_get(1);      } # 2(テンキー)
-    elsif ($key == 327) { $c->image_get(2);      } # 3(テンキー)
-    elsif ($key == 328) { $c->image_get(3);      } # 4(テンキー)
-    elsif ($key == 329) { $c->image_get(4);      } # 5(テンキー)
-    elsif ($key == 330) { $c->image_get(5);      } # 6(テンキー)
-    elsif ($key == 331) { $c->image_get(6);      } # 7(テンキー)
-    elsif ($key == 332) { $c->image_get(7);      } # 8(テンキー)
-    elsif ($key == 333) { $c->image_get(8);      } # 9(テンキー)
-    elsif ($key ==  27) { $f->image_load_cancel; } # ESC
     else                { $event->Skip();        }
 }
 
