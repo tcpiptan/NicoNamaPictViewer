@@ -6,7 +6,7 @@ use NNPV::CommonSense;
 use NNPV::ImageStore;
 use NNPV::ImageLoader;
 use NNPV::Config;
-use NNPV::Frame;
+use NNPV::Frame::Main;
 use NNPV::Dialog::Settings;
 use NNPV::Dialog::Url;
 use NNPV::FileSystem::Functions;
@@ -54,7 +54,7 @@ sub init_config {
 sub init_frame {
     my $self = shift;
     
-    $self->frame( NNPV::Frame->new );
+    $self->frame( NNPV::Frame::Main->new );
     $self->frame->slideshow( $self->config->Read('slideshow_onoff') );
     if ($self->frame->slideshow) {
         $self->frame->menuitem_slideshow->Check(1);
@@ -67,7 +67,7 @@ sub init_frame {
         $self->frame->status_bar->SetStatusText("シャッフル",2);
     }
     $self->frame->draw_image( get_default_image() );
-    $self->frame->Fit;
+#    $self->frame->Fit;
     $self->frame->Layout;
     
     $self->frame;
@@ -112,6 +112,8 @@ sub show_dialog_settings {
     $self->dialog_settings->image_bgcolor( $self->config->Read('image_bgcolor') );
     $self->dialog_settings->image_cache_onoff( $self->config->Read('image_cache_onoff') );
     $self->dialog_settings->image_load_nowait_onoff( $self->config->Read('image_load_nowait_onoff') );
+    $self->dialog_settings->image_mouse_click_onoff( $self->config->Read('image_mouse_click_onoff') );
+    $self->dialog_settings->image_mouse_wheel_onoff( $self->config->Read('image_mouse_wheel_onoff') );
     
     if ($self->dialog_settings->ShowModal == wxID_OK) {
         $self->config->Write(slideshow_interval => $self->dialog_settings->slideshow_interval);
@@ -124,6 +126,8 @@ sub show_dialog_settings {
         $self->config->Write(image_bgcolor => $self->dialog_settings->image_bgcolor);
         $self->config->Write(image_cache_onoff => $self->dialog_settings->image_cache_onoff);
         $self->config->Write(image_load_nowait_onoff => $self->dialog_settings->image_load_nowait_onoff);
+        $self->config->Write(image_mouse_click_onoff => $self->dialog_settings->image_mouse_click_onoff);
+        $self->config->Write(image_mouse_wheel_onoff => $self->dialog_settings->image_mouse_wheel_onoff);
         
         # 初期画面が変更された時に画像を何も読み込んでなければ即座に初期画面を変更する
         if ($self->store->count == 0) {

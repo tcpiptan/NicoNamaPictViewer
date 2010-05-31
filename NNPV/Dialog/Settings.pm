@@ -85,6 +85,18 @@ sub image_load_nowait_onoff {
     $self->{checkbox_load_nowait}->GetValue;
 }
 
+sub image_mouse_click_onoff {
+    my $self = shift;
+    $self->{checkbox_mouse_click}->SetValue(@_) if @_;
+    $self->{checkbox_mouse_click}->GetValue;
+}
+
+sub image_mouse_wheel_onoff {
+    my $self = shift;
+    $self->{checkbox_mouse_wheel}->SetValue(@_) if @_;
+    $self->{checkbox_mouse_wheel}->GetValue;
+}
+
 sub file_dialog {
     my $self = shift;
     

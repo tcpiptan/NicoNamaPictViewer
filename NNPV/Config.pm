@@ -39,6 +39,8 @@ sub init {
     $config->Write(image_bgcolor           => $new ? '#000000' : '' . $config->Read('image_bgcolor'));
     $config->Write(image_cache_onoff       => $new ? 1         : 0  + $config->Read('image_cache_onoff'));
     $config->Write(image_load_nowait_onoff => $new ? 0         : 0  + $config->Read('image_load_nowait_onoff'));
+    $config->Write(image_mouse_click_onoff => $new ? 0         : 0  + $config->Read('image_mouse_click_onoff'));
+    $config->Write(image_mouse_wheel_onoff => $new ? 0         : 0  + $config->Read('image_mouse_wheel_onoff'));
     
     $config->Flush;
     $config;
