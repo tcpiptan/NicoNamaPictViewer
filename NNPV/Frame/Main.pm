@@ -331,13 +331,13 @@ sub on_slideshow_timer {
 sub on_left_click {
     my($self, $event) = @_;
     my $c = NNPV::Controller->instance;
-    $c->image_next;
+    $c->image_next if $c->config->Read('image_mouse_click_onoff');
 }
 
 sub on_right_click {
     my($self, $event) = @_;
     my $c = NNPV::Controller->instance;
-    $c->image_prev;
+    $c->image_prev if $c->config->Read('image_mouse_click_onoff');
 }
 
 sub on_wheel {
@@ -347,11 +347,13 @@ sub on_wheel {
     $delta or ($delta = 120); # XXX why is this zero?
     my $dist = $event->GetWheelRotation() / $delta;
 #    print "delta is $delta, $dist\n";
-    if ($dist > 0) {
-        $c->image_next;
-    }
-    elsif ($dist < 0) {
-        $c->image_prev;
+    if ($c->config->Read('image_mouse_wheel_onoff')) {
+        if ($dist > 0) {
+            $c->image_next;
+        }
+        elsif ($dist < 0) {
+            $c->image_prev;
+        }
     }
 }
 

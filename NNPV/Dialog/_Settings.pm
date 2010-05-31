@@ -22,6 +22,7 @@ sub new {
 
 	$self = $self->SUPER::new( $parent, $id, $title, $pos, $size, $style, $name );
 	$self->{notebook_settings} = Wx::Notebook->new($self, -1, wxDefaultPosition, wxDefaultSize, 0);
+	$self->{notebook_settings_panel_mouse} = Wx::Panel->new($self->{notebook_settings}, -1, wxDefaultPosition, wxDefaultSize, );
 	$self->{notebook_settings_panel_load_nowait} = Wx::Panel->new($self->{notebook_settings}, -1, wxDefaultPosition, wxDefaultSize, );
 	$self->{notebook_settings_panel_cache} = Wx::Panel->new($self->{notebook_settings}, -1, wxDefaultPosition, wxDefaultSize, );
 	$self->{notebook_settings_panel_bg} = Wx::Panel->new($self->{notebook_settings}, -1, wxDefaultPosition, wxDefaultSize, );
@@ -36,6 +37,8 @@ sub new {
 	$self->{label_bg_color} = Wx::StaticText->new($self->{notebook_settings_panel_bg}, -1, "背景色:", wxDefaultPosition, wxDefaultSize, );
 	$self->{checkbox_cache} = Wx::CheckBox->new($self->{notebook_settings_panel_cache}, -1, "キャッシュを有効にする", wxDefaultPosition, wxDefaultSize, );
 	$self->{checkbox_load_nowait} = Wx::CheckBox->new($self->{notebook_settings_panel_load_nowait}, -1, "高速読み込み\n(読み込み中に他の操作ができなくなります)", wxDefaultPosition, wxDefaultSize, );
+	$self->{checkbox_mouse_click} = Wx::CheckBox->new($self->{notebook_settings_panel_mouse}, -1, "クリックで画像切り替えを有効にする（左：次の画像　右：前の画像）", wxDefaultPosition, wxDefaultSize, );
+	$self->{checkbox_mouse_wheel} = Wx::CheckBox->new($self->{notebook_settings_panel_mouse}, -1, "ホイールで画像切り替えを有効にする", wxDefaultPosition, wxDefaultSize, );
 	$self->{wxID_OK} = Wx::Button->new($self, wxID_OK, "");
 	$self->{wxID_CANCEL} = Wx::Button->new($self, wxID_CANCEL, "");
     my $c = NNPV::Controller->instance;
@@ -73,6 +76,9 @@ sub __do_layout {
 
 	$self->{sizer_top} = Wx::BoxSizer->new(wxVERTICAL);
 	$self->{sizer_button} = Wx::BoxSizer->new(wxHORIZONTAL);
+	$self->{sizer_mouse} = Wx::BoxSizer->new(wxVERTICAL);
+	$self->{sizer_mouse_line2} = Wx::BoxSizer->new(wxHORIZONTAL);
+	$self->{sizer_mouse_line1} = Wx::BoxSizer->new(wxHORIZONTAL);
 	$self->{sizer_load_nowait} = Wx::BoxSizer->new(wxVERTICAL);
 	$self->{sizer_load_nowait_line1} = Wx::BoxSizer->new(wxHORIZONTAL);
 	$self->{sizer_cache} = Wx::BoxSizer->new(wxVERTICAL);
@@ -105,11 +111,17 @@ sub __do_layout {
 	$self->{sizer_load_nowait_line1}->Add($self->{checkbox_load_nowait}, 0, wxLEFT|wxRIGHT|wxTOP|wxALIGN_CENTER_VERTICAL, 4);
 	$self->{sizer_load_nowait}->Add($self->{sizer_load_nowait_line1}, 1, wxEXPAND, 0);
 	$self->{notebook_settings_panel_load_nowait}->SetSizer($self->{sizer_load_nowait});
+	$self->{sizer_mouse_line1}->Add($self->{checkbox_mouse_click}, 0, wxALL|wxALIGN_CENTER_VERTICAL, 4);
+	$self->{sizer_mouse}->Add($self->{sizer_mouse_line1}, 1, wxEXPAND, 0);
+	$self->{sizer_mouse_line2}->Add($self->{checkbox_mouse_wheel}, 0, wxALL|wxALIGN_CENTER_VERTICAL, 4);
+	$self->{sizer_mouse}->Add($self->{sizer_mouse_line2}, 1, wxEXPAND, 0);
+	$self->{notebook_settings_panel_mouse}->SetSizer($self->{sizer_mouse});
 	$self->{notebook_settings}->AddPage($self->{notebook_settings_panel_slideshow}, "スライドショー");
 	$self->{notebook_settings}->AddPage($self->{notebook_settings_panel_image}, "初期画面");
 	$self->{notebook_settings}->AddPage($self->{notebook_settings_panel_bg}, "背景");
 	$self->{notebook_settings}->AddPage($self->{notebook_settings_panel_cache}, "キャッシュ");
 	$self->{notebook_settings}->AddPage($self->{notebook_settings_panel_load_nowait}, "高速読み込み");
+	$self->{notebook_settings}->AddPage($self->{notebook_settings_panel_mouse}, "マウス");
 	$self->{sizer_top}->Add($self->{notebook_settings}, 1, wxALL, 4);
 	$self->{sizer_button}->Add($self->{wxID_OK}, 0, 0, 0);
 	$self->{sizer_button}->Add($self->{wxID_CANCEL}, 0, wxLEFT, 10);
