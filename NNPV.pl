@@ -2,11 +2,8 @@
 
 # ＵＴＦ－８
 
-use FindBin;
-use lib $FindBin::Bin;
 use Wx::Perl::Packager;
 use NNPV::CommonSense;
-use NNPV;
 use NNPV::App;
 use Getopt::Long;
 
